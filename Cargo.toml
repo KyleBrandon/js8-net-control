@@ -1,5 +1,5 @@
 [package]
-name = "js8-net-control"
+name = "js8netcontrol"
 version = "0.1.0"
 authors = ["Kyle Brandon <kyle@brandfam.net>"]
 edition = "2018"
@@ -14,7 +14,7 @@ rocket = "0.5.0-rc.1"
 serde = { version = "1.0.*", features = ["derive"] }
 serde_json = "1.0.*"
 redis = "*"
-js8event = { path = "../js8event" }
+js8event = { path = "../js8-event" }
 tokio = { version = "*", features = ["full"] }
 
 [dependencies.rocket_dyn_templates]
