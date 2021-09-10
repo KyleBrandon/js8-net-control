@@ -1,5 +1,5 @@
 [package]
-name = "js8NetControl"
+name = "js8-net-control"
 version = "0.1.0"
 authors = ["Kyle Brandon <kyle@brandfam.net>"]
 edition = "2018"
