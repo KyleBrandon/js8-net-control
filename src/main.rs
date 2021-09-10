@@ -25,13 +25,15 @@ async fn subscribe(redis_address: String) -> JoinHandle<()> {
         let pubsub = JS8RedisPubSub::new(redis_address);
         pubsub.subscribe(|event: Event| {
             if *event.message_type() == MessageType::RxActivity {
-                let activity = RxActivity::try_from(event);
-                trace!("WebServer: {:?}", activity);
+                let message = RxActivity::try_from(event);
+                trace!("WebServer: {:?}", message);
 
             } else if *event.message_type() == MessageType::RxSpot {
-                let spot = RxSpot::try_from(event);
-                trace!("WebServer: {:?}", spot);
-
+                let message = RxSpot::try_from(event);
+                trace!("WebServer: {:?}", message);
+            } else if *event.message_type() == MessageType::RxDirected {
+                let message = RxDirected::try_from(event);
+                trace!("WebServer: {:?}", message);
             } else {
                 trace!("WebServer: {}", event.message_type());
             }
