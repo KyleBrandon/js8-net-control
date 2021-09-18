@@ -38,8 +38,9 @@ async fn handle_connection(redis_address: String, stream: TcpStream) -> Result<(
 
     while let Some(msg) = rx.recv().await {
 
-        let json: String = serde_json::to_string(msg.get_event()).unwrap();
-        trace!("Received JS8 message: {}", json);
+        let message_type = msg.event.message_type();
+
+        let json: String = serde_json::to_string(message_type).unwrap();
         let event = Message::Text(json);
 
         trace!("Send WebSocket: {}", event);

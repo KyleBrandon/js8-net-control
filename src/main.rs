@@ -16,12 +16,6 @@ pub struct JS8Msg {
     resp: Responder<()>,
 }
 
-impl JS8Msg {
-    fn get_event(&self) -> &Event {
-        &self.event
-    }
-}
-
 mod config;
 mod pubsub;
 mod views;
