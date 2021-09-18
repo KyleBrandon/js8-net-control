@@ -2,76 +2,55 @@
 
 use rocket::fs::{FileServer, relative};
 use rocket_dyn_templates::{Template};
-use std::collections::HashMap;
-use std::convert::TryFrom;
-use std::env;
 use tokio::join;
-use tokio::task::JoinHandle;
-use js8event::pubsub::*;
+use tokio::sync::oneshot;
 use js8event::event::*;
-use js8event::message::*;
+use std::net::SocketAddr;
 
-fn get_redis_address() -> String {
-    "redis://10.0.4.109:6379".to_string()
+/// Provided by the requester and used by the manager task to send the command
+/// response back to the requester.
+type Responder<T> = oneshot::Sender<redis::RedisResult<T>>;
+
+pub struct JS8Msg {
+    event: Event,
+    resp: Responder<()>,
 }
 
-fn get_web_address() -> (String, u16) {
-    ("127.0.0.1".to_string(), 8000)
+impl JS8Msg {
+    fn get_event(&self) -> &Event {
+        &self.event
+    }
 }
 
-async fn subscribe(redis_address: String) -> JoinHandle<()> {
-    tokio::spawn(async move {
-        trace!(">>subscribe");
-        let pubsub = JS8RedisPubSub::new(redis_address);
-        pubsub.subscribe(|event: Event| {
-            if *event.message_type() == MessageType::RxActivity {
-                let message = RxActivity::try_from(event);
-                trace!("WebServer: {:?}", message);
-
-            } else if *event.message_type() == MessageType::RxSpot {
-                let message = RxSpot::try_from(event);
-                trace!("WebServer: {:?}", message);
-            } else if *event.message_type() == MessageType::RxDirected {
-                let message = RxDirected::try_from(event);
-                trace!("WebServer: {:?}", message);
-            } else {
-                trace!("WebServer: {}", event.message_type());
-            }
-        }).unwrap();
-        trace!("<<subscribe");
-    })
-}
-
-#[get("/")]
-fn index() -> Template {
-    trace!(">>index");
-    let context: HashMap<&str, &str> = [("name", "Jonathan")]
-        .iter().cloned().collect();
-    let t = Template::render("index", &context);
-
-    trace!("<<index");
-    return t;
-}
+mod config;
+mod pubsub;
+mod views;
+mod websocket;
 
 #[rocket::main]
 async fn main() {
     log4rs::init_file("log4rs.yml", Default::default()).unwrap();
 
-    let redis_address = get_redis_address();
-    let web = get_web_address();
+    let redis_address = config::get_redis_address();
+    let web_server_address = config::get_web_server_address();
+    let web_socket_address = config::get_web_socket_address();
 
-    let pub_handle = subscribe(redis_address);
+
+    let socket_handle = websocket::start_websocket(redis_address, web_socket_address);
+
+    let web_server_socket: SocketAddr = web_server_address.parse().unwrap();
 
     let figment = rocket::Config::figment()
-        .merge(("address", web.0))
-        .merge(("port", web.1));
+        .merge(("address", web_server_socket.ip()))
+        .merge(("port", web_server_socket.port()));
 
     trace!("Start web server");
+    let views = views::views_factory();
     let rocket_handle = rocket::custom(figment)
-        .mount("/", routes![index])
+        .mount("/", views)
         .mount("/", FileServer::from(relative!("/")))
         .attach(Template::fairing())
-    .launch();
+        .launch();
 
-    join!(pub_handle, rocket_handle);
+    let (_, _) = join!(socket_handle, rocket_handle);
 }
